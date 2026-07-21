@@ -1,0 +1,23 @@
+version: 2
+updates:
+  # Terraform module & provider version updates
+  - package-ecosystem: "terraform"
+    directory: "/"                # location of your .tf files (root of repo)
+    schedule:
+      interval: "daily"           # options: "daily", "weekly", "monthly"
+      time: "06:00"
+      timezone: "America/New_York"
+    open-pull-requests-limit: 10  # cap concurrent PRs so you're not flooded
+    labels:
+      - "dependencies"
+      - "terraform"
+    commit-message:
+      prefix: "terraform"
+      include: "scope"
+    # Uncomment to group all patch/minor bumps into a single PR instead of one-per-dependency
+    # groups:
+    #   terraform-minor-patch:
+    #     update-types:
+    #       - "minor"
+    #       - "patch"
+    
