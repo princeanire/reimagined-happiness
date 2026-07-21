@@ -2,7 +2,7 @@ terraform {
   required_providers {
     aws = {
       source  = "hashicorp/aws"
-      version = "~> 5.1.0"
+      version = "~> 6.0"
     }
   }
 }
@@ -13,5 +13,5 @@ provider "aws" {
 
 module "ec2-instance" {
   source  = "terraform-aws-modules/ec2-instance/aws"
-  version = "5.6.0"
+  version = "6.1.0"
 }

@@ -62,7 +62,34 @@ jobs:
           ## terraform validate
           Status: <pass/fail>
           <relevant output if failed>
-          " > kiro-review.md
+          " > kiro-raw.txt 2>&1
+
+      - name: Clean Kiro output
+        run: |
+          # Strip ANSI escape sequences (colors, cursor codes, etc.)
+          sed -E $'s/\x1b\[[0-9;]*[a-zA-Z]//g' kiro-raw.txt > kiro-stripped.txt
+
+          # Keep only from the first "## Changelog Summary" heading onward,
+          # dropping tool-invocation logs / preamble noise above it
+          awk '/^## Changelog Summary/{found=1} found' kiro-stripped.txt > kiro-review.md
+
+          # Fallback: if the heading was never found (unexpected output format),
+          # just use the stripped output as-is rather than an empty file
+          if [ ! -s kiro-review.md ]; then
+            cp kiro-stripped.txt kiro-review.md
+          fi
+
+          echo "----- cleaned output -----"
+          cat kiro-review.md
+
+      - name: Check review status
+        id: status
+        run: |
+          if grep -qi "Status: fail" kiro-review.md; then
+            echo "failed=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "failed=false" >> "$GITHUB_OUTPUT"
+          fi
 
       - name: Post review as PR comment
         uses: actions/github-script@v7
@@ -70,10 +97,33 @@ jobs:
           script: |
             const fs = require('fs');
             const body = fs.readFileSync('kiro-review.md', 'utf8');
+            const failed = "${{ steps.status.outputs.failed }}" === "true";
+            const header = failed
+              ? "## 🤖 Kiro Dependency Review — ⚠️ Issues Found"
+              : "## 🤖 Kiro Dependency Review — ✅ Checks Passed";
             github.rest.issues.createComment({
               issue_number: context.issue.number,
               owner: context.repo.owner,
               repo: context.repo.repo,
-              body: `## 🤖 Kiro Dependency Review\n\n${body}`
+              body: `${header}\n\n${body}`
             });
-            
+
+      - name: Request changes if checks failed
+        if: steps.status.outputs.failed == 'true'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            await github.rest.pulls.createReview({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: context.issue.number,
+              event: 'REQUEST_CHANGES',
+              body: 'Kiro dependency review found failing checks (terraform init/validate or a breaking changelog entry). See the review comment above for details.'
+            });
+
+      - name: Fail job if checks failed
+        if: steps.status.outputs.failed == 'true'
+        run: |
+          echo "::error::Kiro dependency review found failing terraform init/validate checks."
+          exit 1
+          
