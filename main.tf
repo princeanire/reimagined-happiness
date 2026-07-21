@@ -13,5 +13,5 @@ provider "aws" {
 
 module "ec2-instance" {
   source  = "terraform-aws-modules/ec2-instance/aws"
-  version = "6.1.0"
+  version = "6.4.0"
 }
